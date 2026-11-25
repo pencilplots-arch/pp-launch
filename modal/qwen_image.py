@@ -2,8 +2,8 @@
 import json, os, io, modal
 app = modal.App("pp-qwen-image")
 img = (modal.Image.debian_slim(python_version="3.11")
-       .pip_install("torch==2.6.0", "transformers>=4.51", "accelerate", "sentencepiece", "pillow", "huggingface_hub[hf_transfer]")
-       .pip_install("git+https://github.com/huggingface/diffusers").env({"HF_HUB_ENABLE_HF_TRANSFER": "1", "HF_HOME": "/cache"}))
+       .pip_install("torch>=2.8", "transformers>=4.51", "accelerate", "sentencepiece", "pillow", "huggingface_hub[hf_transfer]")
+       .pip_install("diffusers>=0.36").env({"HF_HUB_ENABLE_HF_TRANSFER": "1", "HF_HOME": "/cache"}))
 vol = modal.Volume.from_name("pp-hf-cache", create_if_missing=True)
 
 @app.cls(image=img, gpu="H100", volumes={"/cache": vol}, timeout=3000, scaledown_window=60)

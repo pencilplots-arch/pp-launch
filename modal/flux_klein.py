@@ -3,8 +3,8 @@
 import json, os, io, modal
 app = modal.App("pp-flux-klein")
 img = (modal.Image.debian_slim(python_version="3.11")
-       .pip_install("torch==2.6.0", "transformers", "accelerate", "sentencepiece", "pillow", "huggingface_hub")
-       .pip_install("git+https://github.com/huggingface/diffusers"))
+       .pip_install("torch>=2.8", "transformers", "accelerate", "sentencepiece", "pillow", "huggingface_hub")
+       .pip_install("diffusers>=0.36"))
 vol = modal.Volume.from_name("pp-hf-cache", create_if_missing=True)
 
 @app.cls(image=img, gpu="L4", volumes={"/cache": vol}, timeout=1800, scaledown_window=60)

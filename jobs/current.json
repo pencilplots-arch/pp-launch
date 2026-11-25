@@ -190,5 +190,6 @@
    "seed": 294
   }
  ],
- "neg": "blurry, garbled text, misspelled words, extra letters, extra words, watermark, logo, realistic human face, skin-coloured face, nose, ears, low quality, deformed hands"
+ "neg": "blurry, garbled text, misspelled words, extra letters, extra words, watermark, logo, realistic human face, skin-coloured face, nose, ears, low quality, deformed hands",
+ "run": 2
 }
