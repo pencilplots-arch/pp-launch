@@ -6,13 +6,14 @@ img = (modal.Image.debian_slim(python_version="3.11")
        .pip_install("diffusers>=0.36").env({"HF_HUB_ENABLE_HF_TRANSFER": "1", "HF_HOME": "/cache"}))
 vol = modal.Volume.from_name("pp-hf-cache", create_if_missing=True)
 
-@app.cls(image=img, gpu="H100", volumes={"/cache": vol}, timeout=3000, scaledown_window=60)
+@app.cls(image=img, gpu="L40S", volumes={"/cache": vol}, timeout=3000, scaledown_window=60)
 class Q:
     @modal.enter()
     def load(self):
         import torch
         from diffusers import DiffusionPipeline
-        self.pipe = DiffusionPipeline.from_pretrained("Qwen/Qwen-Image", torch_dtype=torch.bfloat16, cache_dir="/cache").to("cuda")
+        self.pipe = DiffusionPipeline.from_pretrained("Qwen/Qwen-Image", torch_dtype=torch.bfloat16, cache_dir="/cache")
+        self.pipe.enable_model_cpu_offload()   # L40S has 48 GB: the 41 GB transformer and the text encoder take turns on the GPU
         vol.commit()
     @modal.method()
     def draw(self, items, neg):
