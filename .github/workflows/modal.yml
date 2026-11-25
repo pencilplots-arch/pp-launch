@@ -1,0 +1,28 @@
+# Modal GPU runner (25 Nov 2026, user 14:53: Kaggle queues waste too much time). The agent workspace cannot speak gRPC,
+# so GitHub's runner calls Modal for us: it checks out a bundle branch (job.json + refs), runs modal/flux_klein.py on a
+# Modal GPU (no queue, $30/month free, hard stop at $0) and returns the pictures as a 1-day artifact.
+name: modal
+run-name: modal ${{ inputs.bundle }}
+on:
+  workflow_dispatch:
+    inputs:
+      bundle: {description: 'bundle branch with job.json and refs/', required: true}
+      script: {description: 'modal script in modal/', required: false, default: 'flux_klein.py'}
+permissions:
+  contents: read
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: main, path: code}
+      - uses: actions/checkout@v4
+        with: {ref: '${{ inputs.bundle }}', path: bundle}
+      - run: pip install -q modal
+      - run: cd bundle && modal run ../code/modal/${{ inputs.script }} --job job.json --out out
+      - uses: actions/upload-artifact@v4
+        with: {name: out, path: bundle/out, retention-days: 1}
