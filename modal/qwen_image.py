@@ -27,5 +27,7 @@ class Q:
 @app.local_entrypoint()
 def main(job: str = "job.json", out: str = "out"):
     J = json.load(open(job)); os.makedirs(out, exist_ok=True)
-    for name, data in Q().draw.remote(J["items"], J.get("neg", " ")): open(os.path.join(out, name + ".jpg"), "wb").write(data)
+    n = J.get("parallel", 3); items = J["items"]; chunks = [items[i::n] for i in range(n)]
+    for res in Q().draw.starmap([(c, J.get("neg", " ")) for c in chunks if c]):
+        for name, data in res: open(os.path.join(out, name + ".jpg"), "wb").write(data)
     print("done", len(os.listdir(out)))
