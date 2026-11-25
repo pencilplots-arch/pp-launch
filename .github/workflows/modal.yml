@@ -2,10 +2,11 @@
 # so GitHub's runner calls Modal for us: it checks out a bundle branch (job.json + refs), runs modal/flux_klein.py on a
 # Modal GPU (no queue, $30/month free, hard stop at $0) and returns the pictures as a 1-day artifact.
 name: modal
-run-name: modal ${{ inputs.bundle || github.ref_name }}
+run-name: modal ${{ inputs.bundle || github.event.head_commit.message }}
 on:
   push:
-    branches: ['bundle-*']
+    branches: [main]
+    paths: ['jobs/current.json']
   workflow_dispatch:
     inputs:
       bundle: {description: 'bundle branch with job.json and refs/', required: true}
@@ -23,8 +24,8 @@ jobs:
       - uses: actions/checkout@v4
         with: {ref: main, path: code}
       - uses: actions/checkout@v4
-        with: {ref: '${{ inputs.bundle || github.ref_name }}', path: bundle}
+        with: {ref: '${{ inputs.bundle || github.sha }}', path: bundle}
       - run: pip install -q modal
-      - run: cd bundle && modal run ../code/modal/${{ inputs.script || 'qwen_image.py' }} --job job.json --out out
+      - run: cd bundle && modal run ../code/modal/${{ inputs.script || 'qwen_image.py' }} --job ${{ inputs.bundle && 'job.json' || 'jobs/current.json' }} --out out
       - uses: actions/upload-artifact@v4
         with: {name: out, path: bundle/out, retention-days: 1}
