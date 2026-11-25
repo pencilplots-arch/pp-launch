@@ -1,0 +1,65 @@
+# Free AI thumbnails on GitHub's own runners (public repo = no minute limit): Z-Image-Turbo (Apache 2.0) GGUF Q8 through
+# stable-diffusion.cpp on CPU. One runner per picture, up to 20 at once. Started by pushing jobs/zimg.json; pictures come back as artifacts.
+name: zimg
+run-name: zimg ${{ github.event.head_commit.message }}
+on:
+  push:
+    branches: [main]
+    paths: ['jobs/zimg.json']
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs: {idx: '${{ steps.m.outputs.idx }}'}
+    steps:
+      - uses: actions/checkout@v4
+      - id: m
+        run: python3 -c "import json;print('idx='+json.dumps(list(range(len(json.load(open('jobs/zimg.json'))['items'])))))" >> $GITHUB_OUTPUT
+      - name: sd-cli
+        env: {GH_TOKEN: '${{ github.token }}'}
+        run: |
+          set -x
+          url=$(gh api repos/leejet/stable-diffusion.cpp/releases/latest --jq '.assets[]|select(.name|test("Linux";"i"))|select(.name|test("x86_64|x64";"i"))|select(.name|test("cuda|vulkan|rocm|sycl|musa";"i")|not)|.browser_download_url' | head -1)
+          if [ -n "$url" ]; then curl -sSL -o b.zip "$url" && unzip -q b.zip -d rel && f=$(find rel -name 'sd-cli' -o -name 'sd' -type f | head -1) && cp "$f" sd-cli && cp $(find rel -name '*.so*') . 2>/dev/null || true; fi
+          if ! ./sd-cli --help >/dev/null 2>&1; then
+            git clone -q --depth 1 https://github.com/leejet/stable-diffusion.cpp s && cd s && git submodule update -q --init --recursive --depth 1
+            cmake -S . -B b -DCMAKE_BUILD_TYPE=Release -DSD_WEBM=OFF -DGGML_NATIVE=OFF -DGGML_AVX2=ON > /dev/null && cmake --build b -j4 --target sd-cli 2>&1 | tail -3
+            cp b/bin/sd-cli ../sd-cli; cd ..
+          fi
+          ./sd-cli --help | head -3; ls -la
+      - uses: actions/upload-artifact@v4
+        with: {name: sd-cli, path: 'sd-cli*', retention-days: 1}
+  gen:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      max-parallel: 20
+      matrix: {i: '${{ fromJson(needs.build.outputs.idx) }}'}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: {name: sd-cli, path: bin}
+      - uses: actions/cache@v4
+        with: {path: models, key: 'zimage-q8-v1'}
+      - name: models
+        run: |
+          mkdir -p models && cd models
+          get() { [ -s "$2" ] || curl -sSL --retry 5 -o "$2" "https://huggingface.co/$1/resolve/main/$3?download=true"; }
+          get leejet/Z-Image-Turbo-GGUF z_image_turbo-Q8_0.gguf z_image_turbo-Q8_0.gguf
+          get unsloth/Qwen3-4B-Instruct-2507-GGUF Qwen3-4B-Instruct-2507-Q8_0.gguf Qwen3-4B-Instruct-2507-Q8_0.gguf
+          get Comfy-Org/z_image_turbo ae.safetensors split_files/vae/ae.safetensors
+          ls -la
+      - name: generate
+        run: |
+          chmod +x bin/sd-cli; mkdir -p out
+          read -r NAME W H SEED < <(python3 -c "import json;it=json.load(open('jobs/zimg.json'))['items'][${{ matrix.i }}];print(it['name'],it['w'],it['h'],it['seed'])")
+          python3 -c "import json;open('p.txt','w').write(json.load(open('jobs/zimg.json'))['items'][${{ matrix.i }}]['prompt'])"
+          LD_LIBRARY_PATH=bin time bin/sd-cli --diffusion-model models/z_image_turbo-Q8_0.gguf --vae models/ae.safetensors --llm models/Qwen3-4B-Instruct-2507-Q8_0.gguf \
+            -p "$(cat p.txt)" --cfg-scale 1.0 --steps 8 -W $W -H $H --seed $SEED -t 4 --diffusion-fa -o out/$NAME.png 2>&1 | grep -v "^\s*|" | tail -8
+          ls -la out
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: {name: 'out-${{ matrix.i }}', path: out, retention-days: 2}
