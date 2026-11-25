@@ -26,6 +26,6 @@ jobs:
       - uses: actions/checkout@v4
         with: {ref: '${{ inputs.bundle || github.sha }}', path: bundle}
       - run: pip install -q modal
-      - run: cd bundle && modal run ../code/modal/${{ inputs.script || 'qwen_image.py' }} --job ${{ inputs.bundle && 'job.json' || 'jobs/current.json' }} --out out
+      - run: cd bundle && modal run ../code/modal/${{ inputs.script || 'zimage.py' }} --job ${{ inputs.bundle && 'job.json' || 'jobs/current.json' }} --out out
       - uses: actions/upload-artifact@v4
         with: {name: out, path: bundle/out, retention-days: 1}
