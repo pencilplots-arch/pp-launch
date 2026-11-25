@@ -191,6 +191,6 @@
   }
  ],
  "neg": "blurry, garbled text, misspelled words, extra letters, extra words, watermark, logo, realistic human face, skin-coloured face, nose, ears, low quality, deformed hands",
- "run": 4,
- "parallel": 5
+ "run": 5,
+ "parallel": 9
 }

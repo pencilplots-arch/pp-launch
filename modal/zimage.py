@@ -1,4 +1,4 @@
-# Z-Image-Turbo (Apache 2.0, 6B, good in-image text, 8-9 steps) on Modal T4s: the only GPU Modal's no-card plan allows (L4/L40S/H100 need a card).
+# Z-Image-Turbo (Apache 2.0, 6B, good in-image text, 8-9 steps) on Modal CPUs (32 cores each): Modal's no-card plan refuses every GPU (T4 included, 25 Nov 2026).
 # job.json: {"items": [{"name", "prompt", "w", "h", "seed"}], "parallel": 3}
 import json, os, io, modal
 app = modal.App("pp-zimage")
@@ -7,14 +7,14 @@ img = (modal.Image.debian_slim(python_version="3.11")
        .env({"HF_HUB_ENABLE_HF_TRANSFER": "1", "HF_HOME": "/cache"}))
 vol = modal.Volume.from_name("pp-hf-cache", create_if_missing=True)
 
-@app.cls(image=img, gpu="T4", volumes={"/cache": vol}, timeout=3000, scaledown_window=60, memory=32768)
+@app.cls(image=img, cpu=32.0, memory=65536, volumes={"/cache": vol}, timeout=3600, scaledown_window=60)
 class Z:
     @modal.enter()
     def load(self):
         import torch
         from diffusers import ZImagePipeline
         self.pipe = ZImagePipeline.from_pretrained("Tongyi-MAI/Z-Image-Turbo", torch_dtype=torch.bfloat16, cache_dir="/cache")
-        self.pipe.enable_model_cpu_offload()
+        torch.set_num_threads(32)
         vol.commit()
     @modal.method()
     def draw(self, items):
